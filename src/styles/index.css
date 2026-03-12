@@ -1,0 +1,22 @@
+@import './fonts.css';
+@import './tailwind.css';
+@import './theme.css';
+
+@layer base {
+
+    html,
+    body {
+        /* Prevents the "bounce" scroll effect on iOS */
+        overflow-x: hidden;
+        position: fixed;
+        width: 100%;
+        height: 100%;
+    }
+
+    button {
+        /* Removes the blue/gray tap highlight on mobile */
+        -webkit-tap-highlight-color: transparent;
+        /* Prevents selecting text when holding down a button */
+        user-select: none;
+    }
+}
