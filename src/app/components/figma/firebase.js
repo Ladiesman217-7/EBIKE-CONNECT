@@ -3,7 +3,7 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyDAUo3Ik7EBQRdtpOAOPAMM0L-ec9Bz2jI",
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
     authDomain: "ebike-login.firebaseapp.com",
     projectId: "ebike-login",
     storageBucket: "ebike-login.firebasestorage.app",
