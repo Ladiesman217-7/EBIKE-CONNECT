@@ -3,14 +3,14 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    apiKey: "AIzaSyDAUo3Ik7EBQRdtpO0APAMM0L-ec9Bz2jI",
     authDomain: "ebike-login.firebaseapp.com",
     projectId: "ebike-login",
     storageBucket: "ebike-login.firebasestorage.app",
     messagingSenderId: "160884241142",
-    appId: "1:160884241142:web:b7eb3f48589c9b4be2b2d7"
+    appId: "1:160884241142:web:b7eb3f48589c9b4be2b2d7",
+    measurementId: "G-VZFY8PVXQG"
 };
-
 const defaultApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 const adminApp =
