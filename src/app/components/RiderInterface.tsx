@@ -1,4 +1,4 @@
-/// <reference types="vite/client" />
+///<reference types="vite/client" />
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { MapPin, AlertCircle, Bell, LogOut } from "lucide-react";
@@ -34,7 +34,7 @@ export default function RiderInterface() {
 
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
-    googleMapsApiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
   });
 
   // Convert GPS to readable address for the Admin Dashboard

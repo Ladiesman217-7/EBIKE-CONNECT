@@ -14,5 +14,7 @@ export default function App() {
       <Route path="/rider/interface" element={<RiderInterface />} />
       <Route path="*" element={<Navigate to="/adminlogin" replace />} />
     </Routes>
+
   );
+  console.log("TEST KEY:", import.meta.env.VITE_FIREBASE_API_KEY);
 }

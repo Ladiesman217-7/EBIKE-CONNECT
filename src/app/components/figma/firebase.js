@@ -8,8 +8,7 @@ const firebaseConfig = {
     projectId: "ebike-login",
     storageBucket: "ebike-login.firebasestorage.app",
     messagingSenderId: "160884241142",
-    appId: "1:160884241142:web:b7eb3f48589c9b4be2b2d7",
-    measurementId: "G-VZFY8PVXQG",
+    appId: "1:160884241142:web:b7eb3f48589c9b4be2b2d7"
 };
 
 const defaultApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
