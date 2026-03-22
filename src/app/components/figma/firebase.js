@@ -3,15 +3,23 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-    // Gamitin ang bagong variable name dito
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY_NEW,
-    authDomain: "ebike-connect-490916.firebaseapp.com",
-    projectId: "ebike-connect-490916",
-    storageBucket: "ebike-connect-490916.firebasestorage.app",
-    messagingSenderId: "1055744837333",
-    appId: "1:1055744837333:web:583095034608c07e283be3"
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+
+const adminApp = initializeApp(firebaseConfig, "adminApp");
+const riderApp = initializeApp(firebaseConfig, "riderApp");
+
+export const adminAuth = getAuth(adminApp);
+export const riderAuth = getAuth(riderApp);
+
+
+export const db = getFirestore(adminApp);
+
+
+export const auth = adminAuth;

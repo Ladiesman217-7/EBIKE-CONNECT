@@ -9,7 +9,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Navigate to="/adminlogin" replace />} />
       <Route path="/adminlogin" element={<AdminLogin />} />
-      <Route path="/rider" element={<RiderLogin />} />
+      <Route path="/riderlogin" element={<RiderLogin />} />
       <Route path="/admin/dashboard" element={<AdminDashboard />} />
       <Route path="/rider/interface" element={<RiderInterface />} />
       <Route path="*" element={<Navigate to="/adminlogin" replace />} />
