@@ -6,8 +6,7 @@ import { Button } from "./ui/button";
 import BookingModal from "./BookingModal";
 import SOSModal from "./SOSModal";
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
-
-import { riderAuth, db } from "./figma/firebase.js";
+import { auth, db } from "./figma/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, setDoc, serverTimestamp, getDoc, updateDoc } from "firebase/firestore";
 
@@ -37,11 +36,9 @@ export default function RiderInterface() {
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
   });
 
-  // Convert GPS to readable address for the Admin Dashboard
   const getAddressFromCoords = async (lat: number, lng: number): Promise<string> => {
     return new Promise((resolve) => {
       if (!window.google) return resolve("Locating...");
-
       const geocoder = new window.google.maps.Geocoder();
       geocoder.geocode({ location: { lat, lng } }, (results, status) => {
         if (status === "OK" && results?.[0]) {
@@ -49,7 +46,6 @@ export default function RiderInterface() {
           const neighborhood = parts.find(p => p.types.includes("neighborhood"))?.long_name;
           const sublocality = parts.find(p => p.types.includes("sublocality"))?.long_name;
           const city = parts.find(p => p.types.includes("locality"))?.long_name;
-
           resolve(neighborhood || sublocality ? `${neighborhood || sublocality}, ${city}` : city || "Unknown Area");
         } else {
           resolve("Santa Rosa, Laguna");
@@ -58,7 +54,6 @@ export default function RiderInterface() {
     });
   };
 
-  // Track real GPS movement and update Firebase
   useEffect(() => {
     if (!navigator.geolocation) return;
 
@@ -67,7 +62,8 @@ export default function RiderInterface() {
         const newPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setPosition(newPos);
 
-        const user = riderAuth.currentUser;
+        // PINALITAN: riderAuth -> auth
+        const user = auth.currentUser;
         if (user && isOnRoad) {
           const readableAddress = await getAddressFromCoords(newPos.lat, newPos.lng);
           const attendanceRef = doc(db, "attendance", user.uid);
@@ -87,7 +83,8 @@ export default function RiderInterface() {
   }, [isOnRoad]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(riderAuth, async (user) => {
+    // PINALITAN: riderAuth -> auth
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         setLoadingAuth(false);
         navigate("/rider");
@@ -107,7 +104,8 @@ export default function RiderInterface() {
   }, [navigate]);
 
   const handleStatusToggle = async (status: boolean) => {
-    const user = riderAuth.currentUser;
+    // PINALITAN: riderAuth -> auth
+    const user = auth.currentUser;
     if (!user) return;
 
     setIsOnRoad(status);
@@ -133,11 +131,12 @@ export default function RiderInterface() {
 
   const handleLogout = async () => {
     try {
-      const user = riderAuth.currentUser;
+      // PINALITAN: riderAuth -> auth
+      const user = auth.currentUser;
       if (user) {
         await updateDoc(doc(db, "attendance", user.uid), { status: "Offline" });
       }
-      await signOut(riderAuth);
+      await signOut(auth);
       navigate("/rider");
     } catch (error) {
       console.error("Logout error:", error);
@@ -148,7 +147,6 @@ export default function RiderInterface() {
 
   return (
     <div className="min-h-[100dvh] flex flex-col pb-24" style={{ backgroundColor: "#0B0B0C" }}>
-      {/* Header */}
       <header className="border-b border-white/10 p-4 sticky top-0 z-50 bg-[#0B0B0C]/80 backdrop-blur-md">
         <div className="flex items-center justify-between max-w-md mx-auto">
           <div>
@@ -162,7 +160,6 @@ export default function RiderInterface() {
       </header>
 
       <main className="w-full max-w-md mx-auto p-4 space-y-6">
-        {/* Status Toggle Card */}
         <div className="rounded-2xl border border-white/10 p-6 bg-white/5 backdrop-blur-xl">
           <h3 className="text-white mb-4 text-center font-medium">Duty Status</h3>
           <div className="grid grid-cols-2 gap-4">
@@ -183,7 +180,6 @@ export default function RiderInterface() {
           </div>
         </div>
 
-        {/* Real Map Section - Dynamic height for mobile */}
         <div className="rounded-2xl border border-white/10 overflow-hidden relative shadow-2xl h-[40vh] sm:h-[300px]">
           {isLoaded ? (
             <GoogleMap
@@ -198,7 +194,6 @@ export default function RiderInterface() {
             <div className="flex items-center justify-center h-full text-white/20 italic">Loading Maps...</div>
           )}
 
-          {/* Map Overlay Info */}
           <div className="absolute bottom-4 left-4 right-4 bg-black/60 backdrop-blur-md p-3 rounded-xl border border-white/10 flex items-center gap-3">
             <div className={`w-3 h-3 rounded-full ${isOnRoad ? "bg-green-400 animate-pulse" : "bg-white/20"}`} />
             <div className="text-xs">
@@ -208,7 +203,6 @@ export default function RiderInterface() {
           </div>
         </div>
 
-        {/* Desktop-only Action Buttons (Hidden on small mobile if Nav Bar is present) */}
         <div className="hidden sm:grid grid-cols-2 gap-4">
           <Button
             onClick={() => isOnRoad && setShowBookingModal(true)}
@@ -229,7 +223,6 @@ export default function RiderInterface() {
         </div>
       </main>
 
-      {/* Mobile Bottom Navigation Bar */}
       <nav className="fixed bottom-0 left-0 right-0 bg-[#0B0B0C]/90 backdrop-blur-xl border-t border-white/10 px-6 py-3 pb-safe z-50 sm:hidden">
         <div className="flex justify-between items-center">
           <button className="flex flex-col items-center gap-1 text-green-400">
@@ -261,5 +254,3 @@ export default function RiderInterface() {
     </div>
   );
 }
-
-//TESTING kung naupdate sa git
