@@ -11,15 +11,16 @@ const firebaseConfig = {
     appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-
 const adminApp = initializeApp(firebaseConfig, "adminApp");
 const riderApp = initializeApp(firebaseConfig, "riderApp");
 
 export const adminAuth = getAuth(adminApp);
 export const riderAuth = getAuth(riderApp);
 
+// ✅ Each gets its OWN Firestore tied to its own auth token
+export const adminDb = getFirestore(adminApp);
+export const riderDb = getFirestore(riderApp);
 
-export const db = getFirestore(adminApp);
-
-
+// Legacy aliases
 export const auth = adminAuth;
+export const db = adminDb;

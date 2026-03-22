@@ -7,7 +7,7 @@ import BookingModal from "./BookingModal";
 import SOSModal from "./SOSModal";
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 
-import { riderAuth, db } from "./figma/firebase.js";
+import { adminDb, riderAuth, riderDb } from "./figma/firebase.js";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, setDoc, serverTimestamp, getDoc, updateDoc } from "firebase/firestore";
 
@@ -63,14 +63,14 @@ export default function RiderInterface() {
       }
 
       try {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
+        const userDoc = await getDoc(doc(riderDb, "users", user.uid));
         if (userDoc.exists() && userDoc.data()?.role?.trim() === "rider") {
           setRiderData({
             name: userDoc.data().name || "Rider",
             id: user.uid
           });
 
-          const snap = await getDoc(doc(db, "users", user.uid));
+          const snap = await getDoc(doc(riderDb, "users", user.uid));
           if (snap.exists()) setIsOnRoad(snap.data().status === "on-road");
           setAuthed(true);
         } else {
@@ -102,14 +102,14 @@ export default function RiderInterface() {
           const readableAddress = await getAddressFromCoords(newPos.lat, newPos.lng);
 
           // Update Users Collection (For Admin Map)
-          await updateDoc(doc(db, "users", user.uid), {
+          await updateDoc(doc(riderDb, "users", user.uid), {
             location: newPos,
             currentAddress: readableAddress,
             lastUpdated: serverTimestamp()
           });
 
           // Update Attendance Collection
-          updateDoc(doc(db, "attendance", user.uid), {
+          updateDoc(doc(riderDb, "attendance", user.uid), {
             latitude: newPos.lat,
             longitude: newPos.lng,
             location: readableAddress,
@@ -131,13 +131,13 @@ export default function RiderInterface() {
     try {
       const currentAddress = status ? await getAddressFromCoords(position.lat, position.lng) : "Offline";
 
-      await updateDoc(doc(db, "users", user.uid), {
+      await updateDoc(doc(riderDb, "users", user.uid), {
         status: status ? "on-road" : "off-road",
         location: position,
         currentAddress: currentAddress
       });
 
-      await setDoc(doc(db, "attendance", user.uid), {
+      await setDoc(doc(riderDb, "attendance", user.uid), {
         riderName: riderData.name,
         riderId: riderData.id,
         email: user.email || "",
@@ -156,7 +156,7 @@ export default function RiderInterface() {
     try {
       const user = riderAuth.currentUser;
       if (user) {
-        await updateDoc(doc(db, "users", user.uid), { status: "off-road" });
+        await updateDoc(doc(riderDb, "users", user.uid), { status: "off-road" });
       }
       await signOut(riderAuth);
       navigate("/riderlogin", { replace: true });

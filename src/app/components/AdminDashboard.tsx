@@ -13,7 +13,8 @@ import {
 
 import { signOut, onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "./figma/firebase.js";
+import { adminAuth, adminDb } from "./figma/firebase.js";
+
 
 import AttendanceList from "./AttendanceList";
 import MapSection from "./MapSection";
@@ -35,17 +36,17 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = onAuthStateChanged(adminAuth, async (user) => {
       try {
         if (!user) {
           navigate("/adminlogin", { replace: true });
           return;
         }
 
-        const userSnap = await getDoc(doc(db, "users", user.uid));
+        const userSnap = await getDoc(doc(adminDb, "users", user.uid));
 
         if (!userSnap.exists()) {
-          await signOut(auth);
+          await signOut(adminAuth);
           navigate("/adminlogin", { replace: true });
           return;
         }
@@ -53,13 +54,13 @@ export default function AdminDashboard() {
         const userData = userSnap.data();
 
         if (userData?.role !== "admin") {
-          await signOut(auth);
+          await signOut(adminAuth);
           navigate("/adminlogin", { replace: true });
           return;
         }
       } catch (error) {
         console.error("Admin auth check failed:", error);
-        await signOut(auth);
+        await signOut(adminAuth);
         navigate("/adminlogin", { replace: true });
       } finally {
         setCheckingAuth(false);
@@ -71,7 +72,7 @@ export default function AdminDashboard() {
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      await signOut(adminAuth);
       navigate("/adminlogin", { replace: true });
     } catch (error) {
       console.error("Logout error:", error);

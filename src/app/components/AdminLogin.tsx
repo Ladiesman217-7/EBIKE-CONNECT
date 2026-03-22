@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Lock, User, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
-import { adminAuth, db } from "./figma/firebase.js";
+import { adminAuth, adminDb } from "./figma/firebase.js";
 import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 
@@ -21,7 +21,7 @@ export default function AdminLogin() {
       try {
         if (user) {
           try {
-            const userSnap = await getDoc(doc(db, "users", user.uid));
+            const userSnap = await getDoc(doc(adminDb, "users", user.uid));
             if (userSnap.exists() && userSnap.data()?.role === "admin") {
               navigate("/admin/dashboard", { replace: true });
             } else {
@@ -52,7 +52,7 @@ export default function AdminLogin() {
       const user = userCredential.user;
 
       try {
-        const userSnap = await getDoc(doc(db, "users", user.uid));
+        const userSnap = await getDoc(doc(adminDb, "users", user.uid));
         if (userSnap.exists() && userSnap.data()?.role === "admin") {
           navigate("/admin/dashboard", { replace: true });
         } else {

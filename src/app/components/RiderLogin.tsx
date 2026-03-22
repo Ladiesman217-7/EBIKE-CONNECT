@@ -3,9 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { Lock, User, Eye, EyeOff } from "lucide-react";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
-import { riderAuth, db } from "./figma/firebase.js";
+import { riderAuth, riderDb } from "./figma/firebase.js";
 import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
+
 
 export default function RiderLogin() {
   const navigate = useNavigate();
@@ -21,7 +22,7 @@ export default function RiderLogin() {
       try {
         if (user) {
           try {
-            const userDoc = await getDoc(doc(db, "users", user.uid));
+            const userDoc = await getDoc(doc(riderDb, "users", user.uid));
             if (userDoc.exists() && userDoc.data().role?.trim() === "rider") {
               navigate("/rider/interface", { replace: true });
             } else {
@@ -52,7 +53,7 @@ export default function RiderLogin() {
       const user = userCredential.user;
 
       try {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
+        const userDoc = await getDoc(doc(riderDb, "users", user.uid));
         if (userDoc.exists() && userDoc.data().role?.trim() === "rider") {
           navigate("/rider/interface", { replace: true });
         } else {
