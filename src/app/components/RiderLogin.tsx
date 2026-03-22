@@ -71,9 +71,9 @@ export default function RiderLogin() {
 
     } catch (error: any) {
       if (error.code === "auth/invalid-credential" || error.code === "auth/wrong-password" || error.code === "auth/user-not-found") {
-        setErrorMessage("Maling email o password.");
+        setErrorMessage("Invalid email or password.Please try again.");
       } else if (error.code === "unavailable" || error.message?.includes("offline")) {
-        setErrorMessage("Walang internet connection.");
+        setErrorMessage("No internet connection.");
       } else {
         setErrorMessage(`Login failed: ${error.code ?? "unknown error"}`);
       }
