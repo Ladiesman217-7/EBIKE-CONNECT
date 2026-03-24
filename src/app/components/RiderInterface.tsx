@@ -31,9 +31,12 @@ export default function RiderInterface() {
   const [authReady, setAuthReady] = useState(false);
   const [authed, setAuthed] = useState(false);
 
-  // Gagamit ng null para malaman kung wala pang nakukuhang signal
   const [position, setPosition] = useState<{ lat: number, lng: number }>({ lat: 14.317986, lng: 121.112499 });
   const [riderData, setRiderData] = useState({ name: "Rider", id: "" });
+
+  // IDLE LOGIC STATES
+  const [lastPos, setLastPos] = useState<{ lat: number, lng: number } | null>(null);
+  const [lastMovedTime, setLastMovedTime] = useState<number>(Date.now());
 
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
@@ -71,7 +74,7 @@ export default function RiderInterface() {
         if (userDoc.exists() && userDoc.data()?.role?.trim() === "rider") {
           const userData = userDoc.data();
           setRiderData({ name: userData.name || "Rider", id: user.uid });
-          setIsOnRoad(userData.status === "on-road");
+          setIsOnRoad(userData.status === "active" || userData.status === "idle");
           setAuthed(true);
         } else {
           await signOut(riderAuth);
@@ -88,62 +91,80 @@ export default function RiderInterface() {
     return () => unsubscribe();
   }, [navigate]);
 
+  // IDLE TIMER CHECK (Tumatakbo kada 1 minute)
+  useEffect(() => {
+    if (!isOnRoad || !authed) return;
+
+    const interval = setInterval(async () => {
+      const currentTime = Date.now();
+      const timeElapsed = (currentTime - lastMovedTime) / 1000 / 60; // Minutes
+
+      if (timeElapsed >= 15) {
+        const user = riderAuth.currentUser;
+        if (user) {
+          await updateDoc(doc(riderDb, "users", user.uid), { status: "idle" });
+          await setDoc(doc(riderDb, "attendance", user.uid), { status: "Idle" }, { merge: true });
+        }
+      }
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [isOnRoad, authed, lastMovedTime]);
+
   // LIVE GPS TRACKING LOGIC
   useEffect(() => {
     if (!authed || !navigator.geolocation) return;
 
     const watchId = navigator.geolocation.watchPosition(
       async (pos) => {
-        const newPos = {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude
-        };
-
-        // Update Map UI
+        const newPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setPosition(newPos);
-        if (mapRef.current) {
-          mapRef.current.panTo(newPos);
-        }
+        if (mapRef.current) mapRef.current.panTo(newPos);
 
         const user = riderAuth.currentUser;
         if (user && isOnRoad) {
-          const readableAddress = await getAddressFromCoords(newPos.lat, newPos.lng);
+          // Check kung gumalaw ang rider (Precision: 6 decimal places)
+          const hasMoved = lastPos === null ||
+            newPos.lat.toFixed(6) !== lastPos.lat.toFixed(6) ||
+            newPos.lng.toFixed(6) !== lastPos.lng.toFixed(6);
 
-          // Update Users Collection (Admin Visibility)
-          await updateDoc(doc(riderDb, "users", user.uid), {
-            location: newPos,
-            currentAddress: readableAddress,
-            lastUpdated: serverTimestamp()
-          });
+          if (hasMoved) {
+            setLastMovedTime(Date.now());
+            setLastPos(newPos);
+            const readableAddress = await getAddressFromCoords(newPos.lat, newPos.lng);
 
-          // Update Attendance Collection
-          await setDoc(doc(riderDb, "attendance", user.uid), {
-            riderName: riderData.name,
-            riderId: user.uid,
-            status: "Active",
-            latitude: newPos.lat,
-            longitude: newPos.lng,
-            location: readableAddress,
-            timestamp: serverTimestamp()
-          }, { merge: true });
+            // Update Users as ACTIVE
+            await updateDoc(doc(riderDb, "users", user.uid), {
+              location: newPos,
+              latitude: newPos.lat,
+              longitude: newPos.lng,
+              currentAddress: readableAddress,
+              status: "active",
+              lastMoved: serverTimestamp()
+            });
+
+            // Update Attendance
+            await setDoc(doc(riderDb, "attendance", user.uid), {
+              riderName: riderData.name,
+              riderId: user.uid,
+              status: "Active",
+              latitude: newPos.lat,
+              longitude: newPos.lng,
+              location: readableAddress,
+              timestamp: serverTimestamp()
+            }, { merge: true });
+          }
         }
       },
       (err) => {
         console.error("GPS Error:", err.message);
-        // I-alert ang user kung naka-block ang permission
-        if (err.code === 1) {
-          alert("Please allow location access to use Ebike-Connect.");
-        }
+        if (err.code === 1) alert("Please allow location access to use Ebike-Connect.");
       },
-      {
-        enableHighAccuracy: true,
-        maximumAge: 0, // CRITICAL: Iwas-fallback sa maling fixed location
-        timeout: 15000
-      }
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
-  }, [authed, isOnRoad, getAddressFromCoords, riderData.name]);
+  }, [authed, isOnRoad, getAddressFromCoords, riderData.name, lastPos]);
 
   const handleStatusToggle = async (status: boolean) => {
     const user = riderAuth.currentUser;
@@ -152,17 +173,23 @@ export default function RiderInterface() {
     setIsOnRoad(status);
     try {
       const currentAddress = status ? await getAddressFromCoords(position.lat, position.lng) : "Offline";
+      const newStatus = status ? "active" : "offline";
 
       await updateDoc(doc(riderDb, "users", user.uid), {
-        status: status ? "on-road" : "off-road",
+        status: newStatus,
         location: position,
-        currentAddress: currentAddress
+        latitude: position.lat,
+        longitude: position.lng,
+        currentAddress: currentAddress,
+        lastMoved: serverTimestamp()
       });
 
       await setDoc(doc(riderDb, "attendance", user.uid), {
         status: status ? "Active" : "Offline",
         timestamp: serverTimestamp(),
       }, { merge: true });
+
+      if (status) setLastMovedTime(Date.now());
     } catch (error) {
       console.error("Status Toggle Error:", error);
     }
@@ -171,7 +198,7 @@ export default function RiderInterface() {
   const handleLogout = async () => {
     try {
       const user = riderAuth.currentUser;
-      if (user) await updateDoc(doc(riderDb, "users", user.uid), { status: "off-road" });
+      if (user) await updateDoc(doc(riderDb, "users", user.uid), { status: "offline" });
       await signOut(riderAuth);
       navigate("/riderlogin", { replace: true });
     } catch (error) {
