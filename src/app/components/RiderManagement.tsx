@@ -8,8 +8,7 @@ interface Rider {
   id: string;
   name: string;
   riderType: "Regular" | "Miner";
-  trips: number;
-  status: string;
+
   phone?: string;
 }
 
@@ -28,7 +27,6 @@ export default function RiderManagement() {
           name: data.name || data.riderName || "Unknown Rider",
           riderType: data.riderType === "Miner" ? "Miner" : "Regular",
           trips: data.trips || 0,
-          status: data.status || "Offline",
           phone: data.phone || "",
         };
       });
@@ -109,8 +107,6 @@ export default function RiderManagement() {
                 <tr className="border-b border-white/10">
                   <th className="text-left py-4 px-6 text-white/60 text-sm font-medium">Rider Name</th>
                   <th className="text-left py-4 px-6 text-white/60 text-sm font-medium">Type</th>
-                  <th className="text-left py-4 px-6 text-white/60 text-sm font-medium">Total Trips</th>
-                  <th className="text-left py-4 px-6 text-white/60 text-sm font-medium">Status</th>
                   <th className="text-left py-4 px-6 text-white/60 text-sm font-medium">Actions</th>
                 </tr>
               </thead>
@@ -144,14 +140,6 @@ export default function RiderManagement() {
                       >
                         {rider.riderType}
                       </Badge>
-                    </td>
-
-                    <td className="py-4 px-6 text-white/60">{rider.trips}</td>
-
-                    <td className="py-4 px-6">
-                      <span className={`text-sm font-medium ${getStatusStyle(rider.status)}`}>
-                        {rider.status}
-                      </span>
                     </td>
 
                     <td className="py-4 px-6">
