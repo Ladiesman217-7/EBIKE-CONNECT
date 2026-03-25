@@ -36,7 +36,7 @@ export default function RiderProfiles() {
     return () => unsubscribe();
   }, []);
 
-  // 2. STATUS STYLES LOGIC
+  //  STATUS STYLES LOGIC
   const getStatusConfig = (status: string) => {
     switch (status?.toLowerCase()) {
       case 'active':
