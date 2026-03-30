@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import { useState, useEffect } from "react";
 import { Navigation } from "lucide-react";
 import { Badge } from "./ui/badge";
@@ -135,11 +136,10 @@ export default function MapSection() {
                 <div
                   key={rider.id}
                   onClick={() => handleRiderClick(rider)}
-                  className={`p-4 rounded-lg border transition-all cursor-pointer hover:bg-white/10 ${
-                    selectedRider?.id === rider.id
+                  className={`p-4 rounded-lg border transition-all cursor-pointer hover:bg-white/10 ${selectedRider?.id === rider.id
                       ? "border-blue-500 bg-blue-500/10"
                       : "border-white/10 bg-white/5"
-                  }`}
+                    }`}
                 >
                   <div className="flex justify-between items-center mb-1">
                     <div className="flex items-center gap-2">
