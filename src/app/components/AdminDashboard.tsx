@@ -10,6 +10,7 @@ import {
   Menu,
   X,
 } from "lucide-react";
+//TESTING -KIM
 
 import { signOut, onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
