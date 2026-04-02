@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -11,13 +12,16 @@ const firebaseConfig = {
     appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
+// Initialize the apps
 const adminApp = initializeApp(firebaseConfig, "adminApp");
 const riderApp = initializeApp(firebaseConfig, "riderApp");
+
+//for uploading images to firebase storage
+export const storage = getStorage(riderApp);
 
 export const adminAuth = getAuth(adminApp);
 export const riderAuth = getAuth(riderApp);
 
-// ✅ Each gets its OWN Firestore tied to its own auth token
 export const adminDb = getFirestore(adminApp);
 export const riderDb = getFirestore(riderApp);
 

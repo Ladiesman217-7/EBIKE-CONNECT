@@ -1,7 +1,20 @@
 /// <reference types="vite/client" />
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertCircle, Bell, LogOut } from "lucide-react";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage } from "./figma/firebase.js";
+import {
+  AlertCircle,
+  Bell,
+  LogOut,
+  Menu,
+  X,
+  User,
+  Phone,
+  Settings,
+  ChevronRight,
+  Camera
+} from "lucide-react";
 import { Button } from "./ui/button";
 import BookingModal from "./BookingModal";
 import SOSModal from "./SOSModal";
@@ -31,8 +44,16 @@ export default function RiderInterface() {
   const [authReady, setAuthReady] = useState(false);
   const [authed, setAuthed] = useState(false);
 
+  // SIDEBAR STATE
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
   const [position, setPosition] = useState<{ lat: number, lng: number }>({ lat: 14.317986, lng: 121.112499 });
-  const [riderData, setRiderData] = useState({ name: "Rider", id: "" });
+  const [riderData, setRiderData] = useState({
+    name: "Rider",
+    id: "",
+    phone: "",
+    photoUrl: ""
+  });
 
   // IDLE LOGIC STATES
   const [lastPos, setLastPos] = useState<{ lat: number, lng: number } | null>(null);
@@ -43,6 +64,37 @@ export default function RiderInterface() {
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? "",
   });
 
+  // IMAGE UPLOAD
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    const user = riderAuth.currentUser;
+
+    if (!file || !user) return;
+
+    try {
+      // separate storage ref for each rider using their UID
+      const storageRef = ref(storage, `profile_pics/${user.uid}/rider_profile.jpg`);
+
+      // 2. Upload file
+      await uploadBytes(storageRef, file);
+
+      // 3. Get URL
+      const downloadURL = await getDownloadURL(storageRef);
+
+      // 4. Update Firestore sa 'users' collection ng rider
+      await updateDoc(doc(riderDb, "users", user.uid), {
+        photoUrl: downloadURL
+      });
+
+      // 5. Update Local State para mag-reflect agad sa UI
+      setRiderData(prev => ({ ...prev, photoUrl: downloadURL }));
+
+      alert("Profile picture updated!");
+    } catch (error) {
+      console.error("Upload error:", error);
+      alert("Failed to upload image. Check your Firebase Storage rules.");
+    }
+  };
   const getAddressFromCoords = useCallback(async (lat: number, lng: number): Promise<string> => {
     return new Promise((resolve) => {
       if (!window.google) return resolve("Locating...");
@@ -73,7 +125,12 @@ export default function RiderInterface() {
         const userDoc = await getDoc(doc(riderDb, "users", user.uid));
         if (userDoc.exists() && userDoc.data()?.role?.trim() === "rider") {
           const userData = userDoc.data();
-          setRiderData({ name: userData.name || "Rider", id: user.uid });
+          setRiderData({
+            name: userData.name || "Rider",
+            id: user.uid,
+            phone: userData.phone || "No Number",
+            photoUrl: userData.photoUrl || ""
+          });
           setIsOnRoad(userData.status === "active" || userData.status === "idle");
           setAuthed(true);
         } else {
@@ -91,14 +148,12 @@ export default function RiderInterface() {
     return () => unsubscribe();
   }, [navigate]);
 
-  // IDLE TIMER CHECK (Tumatakbo kada 1 minute)
+  // IDLE TIMER CHECK
   useEffect(() => {
     if (!isOnRoad || !authed) return;
-
     const interval = setInterval(async () => {
       const currentTime = Date.now();
-      const timeElapsed = (currentTime - lastMovedTime) / 1000 / 60; // Minutes
-
+      const timeElapsed = (currentTime - lastMovedTime) / 1000 / 60;
       if (timeElapsed >= 15) {
         const user = riderAuth.currentUser;
         if (user) {
@@ -107,33 +162,26 @@ export default function RiderInterface() {
         }
       }
     }, 60000);
-
     return () => clearInterval(interval);
   }, [isOnRoad, authed, lastMovedTime]);
 
   // LIVE GPS TRACKING LOGIC
   useEffect(() => {
     if (!authed || !navigator.geolocation) return;
-
     const watchId = navigator.geolocation.watchPosition(
       async (pos) => {
         const newPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setPosition(newPos);
         if (mapRef.current) mapRef.current.panTo(newPos);
-
         const user = riderAuth.currentUser;
         if (user && isOnRoad) {
-          // Check kung gumalaw ang rider (Precision: 6 decimal places)
           const hasMoved = lastPos === null ||
             newPos.lat.toFixed(6) !== lastPos.lat.toFixed(6) ||
             newPos.lng.toFixed(6) !== lastPos.lng.toFixed(6);
-
           if (hasMoved) {
             setLastMovedTime(Date.now());
             setLastPos(newPos);
             const readableAddress = await getAddressFromCoords(newPos.lat, newPos.lng);
-
-            // Update Users as ACTIVE
             await updateDoc(doc(riderDb, "users", user.uid), {
               location: newPos,
               latitude: newPos.lat,
@@ -142,8 +190,6 @@ export default function RiderInterface() {
               status: "active",
               lastMoved: serverTimestamp()
             });
-
-            // Update Attendance
             await setDoc(doc(riderDb, "attendance", user.uid), {
               riderName: riderData.name,
               riderId: user.uid,
@@ -162,19 +208,16 @@ export default function RiderInterface() {
       },
       { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
     );
-
     return () => navigator.geolocation.clearWatch(watchId);
   }, [authed, isOnRoad, getAddressFromCoords, riderData.name, lastPos]);
 
   const handleStatusToggle = async (status: boolean) => {
     const user = riderAuth.currentUser;
     if (!user) return;
-
     setIsOnRoad(status);
     try {
       const currentAddress = status ? await getAddressFromCoords(position.lat, position.lng) : "Offline";
       const newStatus = status ? "active" : "offline";
-
       await updateDoc(doc(riderDb, "users", user.uid), {
         status: newStatus,
         location: position,
@@ -183,12 +226,10 @@ export default function RiderInterface() {
         currentAddress: currentAddress,
         lastMoved: serverTimestamp()
       });
-
       await setDoc(doc(riderDb, "attendance", user.uid), {
         status: status ? "Active" : "Offline",
         timestamp: serverTimestamp(),
       }, { merge: true });
-
       if (status) setLastMovedTime(Date.now());
     } catch (error) {
       console.error("Status Toggle Error:", error);
@@ -210,16 +251,103 @@ export default function RiderInterface() {
   if (!authed) return null;
 
   return (
-    <div className="min-h-[100dvh] flex flex-col pb-24" style={{ backgroundColor: "#0B0B0C" }}>
+    <div className="min-h-[100dvh] flex flex-col pb-24 relative overflow-x-hidden" style={{ backgroundColor: "#0B0B0C" }}>
+
+      {/* SIDEBAR OVERLAY */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] transition-opacity"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* SIDEBAR MENU */}
+      <div className={`fixed top-0 left-0 h-full w-72 bg-[#121214] z-[101] transform transition-transform duration-300 ease-in-out border-r border-white/10 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <div className="flex flex-col h-full p-6">
+          <div className="flex justify-between items-center mb-8">
+            <h2 className="text-white font-bold text-lg tracking-tight">Menu</h2>
+            <button onClick={() => setIsSidebarOpen(false)} className="p-2 hover:bg-white/5 rounded-full">
+              <X className="w-5 h-5 text-white/50" />
+            </button>
+          </div>
+
+          {/* Profile Section */}
+          <div className="bg-white/5 rounded-2xl p-5 mb-6 border border-white/5">
+            <div className="flex flex-col items-center">
+              <div className="relative mb-3">
+                <div className="w-20 h-20 rounded-full bg-blue-500/10 border-2 border-blue-500/50 overflow-hidden flex items-center justify-center">
+                  {riderData.photoUrl ? (
+                    <img src={riderData.photoUrl} alt="Profile" className="w-full h-full object-cover" />
+                  ) : (
+                    <User className="w-10 h-10 text-blue-400/50" />
+                  )}
+                </div>
+
+                {/* Image Upload Input & Button */}
+                <input
+                  type="file"
+                  id="profile-pic-input"
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                />
+                <label
+                  htmlFor="profile-pic-input"
+                  className="absolute bottom-0 right-0 p-1.5 bg-blue-600 rounded-full border-2 border-[#121214] cursor-pointer hover:bg-blue-700 transition-colors"
+                >
+                  <Camera className="w-3 h-3 text-white" />
+                </label>
+              </div>
+              <h3 className="text-white font-bold text-center">{riderData.name}</h3>
+              <p className="text-white/20 text-[10px] uppercase tracking-widest mt-1">Verified Rider</p>
+            </div>
+          </div>
+
+          {/* Navigation Links */}
+          <nav className="space-y-2 flex-1">
+            <button className="w-full flex items-center justify-between p-4 text-white/70 hover:bg-white/5 rounded-xl transition-all">
+              <div className="flex items-center gap-3">
+                <Phone className="w-4 h-4 text-green-400" />
+                <span className="text-sm">Mobile: {riderData.phone}</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-white/10" />
+            </button>
+
+            <button className="w-full flex items-center justify-between p-4 text-white/70 hover:bg-white/5 rounded-xl transition-all">
+              <div className="flex items-center gap-3">
+                <Settings className="w-4 h-4 text-slate-400" />
+                <span className="text-sm">Account Settings</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-white/10" />
+            </button>
+          </nav>
+
+          <button onClick={handleLogout} className="flex items-center gap-3 p-4 text-red-400 hover:bg-red-500/10 rounded-xl transition-all mt-auto">
+            <LogOut className="w-5 h-5" />
+            <span className="font-bold text-sm">Log Out</span>
+          </button>
+        </div>
+      </div>
+
+      {/* HEADER */}
       <header className="border-b border-white/10 p-4 sticky top-0 z-50 bg-[#0B0B0C]/80 backdrop-blur-md">
         <div className="flex items-center justify-between max-w-md mx-auto">
-          <div>
-            <h2 className="text-white font-bold">{riderData.name}</h2>
-            <p className="text-white/60 text-xs tracking-widest uppercase">Ebike-Connect Rider</p>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="p-2 hover:bg-white/5 rounded-lg transition-colors border border-white/5"
+            >
+              <Menu className="w-5 h-5 text-white" />
+            </button>
+            <div>
+              <h3 className="text-white font-bold text">{riderData.name}</h3>
+              <p className="text-white/40 text-[10px] tracking-widest uppercase font-bold">Rider Dashboard</p>
+            </div>
           </div>
-          <button onClick={handleLogout} className="p-2 hover:bg-white/5 rounded-lg transition-colors">
-            <LogOut className="w-5 h-5 text-white/60" />
-          </button>
+          {/* Status Pulse Indicator */}
+          <div className="p-2 bg-blue-500/10 rounded-full border border-blue-500/20">
+            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+          </div>
         </div>
       </header>
 
