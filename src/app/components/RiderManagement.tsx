@@ -1,14 +1,14 @@
 import { useState, useEffect } from "react";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { adminDb } from "./figma/firebase.js";
+import { adminDb, adminAuth } from "./figma/firebase.js";
 import { collection, onSnapshot, query, where, doc, updateDoc } from "firebase/firestore";
 
 interface Rider {
   id: string;
   name: string;
   riderType: "Regular" | "Miner";
-
+  trips: number;
   phone?: string;
 }
 
@@ -16,6 +16,8 @@ export default function RiderManagement() {
   const [riders, setRiders] = useState<Rider[]>([]);
   const [loading, setLoading] = useState(true);
   const [switching, setSwitching] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query(collection(adminDb, "users"), where("role", "==", "rider"));
@@ -28,31 +30,43 @@ export default function RiderManagement() {
           riderType: data.riderType === "Miner" ? "Miner" : "Regular",
           trips: data.trips || 0,
           phone: data.phone || "",
+
         };
       });
       setRiders(list);
+      setLoading(false);
+    }, (err) => {
+      console.error("Snapshot error:", err);
+      setError("Failed to load riders: " + err.message);
       setLoading(false);
     });
     return () => unsubscribe();
   }, []);
 
-  const toggleRole = async (id: string, current: "Regular" | "Miner") => {
+  const toggleRole = async (id: string, name: string, current: "Regular" | "Miner") => {
     const newType = current === "Regular" ? "Miner" : "Regular";
     setSwitching(id);
+    setError(null);
+    setSuccessMsg(null);
+
+    // Check if admin is authenticated
+    const currentUser = adminAuth.currentUser;
+    if (!currentUser) {
+      setError("Admin not authenticated. Please log in again.");
+      setSwitching(null);
+      return;
+    }
+
     try {
       await updateDoc(doc(adminDb, "users", id), { riderType: newType });
-    } catch (err) {
+      setSuccessMsg(`${name} switched to ${newType} successfully!`);
+      setTimeout(() => setSuccessMsg(null), 3000);
+    } catch (err: any) {
       console.error("Failed to update role:", err);
+      setError(`Failed to switch role: ${err.code || err.message}`);
+      setTimeout(() => setError(null), 5000);
     } finally {
       setSwitching(null);
-    }
-  };
-
-  const getStatusStyle = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case "active": return "text-green-400";
-      case "idle": return "text-yellow-400";
-      default: return "text-white/40";
     }
   };
 
@@ -69,6 +83,18 @@ export default function RiderManagement() {
         <h1 className="text-white text-2xl font-bold mb-2">Rider Management</h1>
         <p className="text-white/60">Manage rider roles and permissions</p>
       </div>
+
+      {/* Error / Success Messages */}
+      {error && (
+        <div className="mb-4 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+          ⚠️ {error}
+        </div>
+      )}
+      {successMsg && (
+        <div className="mb-4 p-4 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-sm">
+          ✅ {successMsg}
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -115,7 +141,6 @@ export default function RiderManagement() {
                   <tr key={rider.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-3">
-                        {/* Avatar with type color */}
                         <div
                           className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold text-white shrink-0"
                           style={{
@@ -142,9 +167,10 @@ export default function RiderManagement() {
                       </Badge>
                     </td>
 
+
                     <td className="py-4 px-6">
                       <Button
-                        onClick={() => toggleRole(rider.id, rider.riderType)}
+                        onClick={() => toggleRole(rider.id, rider.name, rider.riderType)}
                         disabled={switching === rider.id}
                         className="text-white border-0 text-sm disabled:opacity-50"
                         style={{ background: "linear-gradient(135deg, #C13584 0%, #FCAF45 100%)" }}
